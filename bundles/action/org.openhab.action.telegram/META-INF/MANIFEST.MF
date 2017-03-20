@@ -28,5 +28,6 @@ Import-Package: org.apache.commons.httpclient,
 Bundle-DocURL: http://www.openhab.org
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Service-Component: OSGI-INF/action.xml
-Bundle-ClassPath: .
+Bundle-ClassPath: .,
+ lib/json-20160810.jar
 Bundle-ActivationPolicy: lazy

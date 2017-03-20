@@ -40,6 +40,7 @@ import org.apache.commons.httpclient.methods.multipart.Part;
 import org.apache.commons.httpclient.methods.multipart.StringPart;
 import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.commons.io.IOUtils;
+import org.json.JSONArray;
 import org.openhab.core.scriptengine.action.ActionDoc;
 import org.openhab.core.scriptengine.action.ParamDoc;
 import org.slf4j.Logger;
@@ -61,8 +62,9 @@ public class Telegram {
     private static final String TELEGRAM_PHOTO_URL = "https://api.telegram.org/bot%s/sendPhoto";
     private static final int HTTP_TIMEOUT = 2000;
     private static final int HTTP_PHOTO_TIMEOUT = 10000;
-
+    private static final String endpoint = "https://api.telegram.org/bot%s/getUpdates";
     private static Map<String, TelegramBot> groupTokens = new HashMap<String, TelegramBot>();
+    private static int offset = 0;
 
     public static void addToken(String group, String chatId, String token) {
         groupTokens.put(group, new TelegramBot(chatId, token));
@@ -139,6 +141,33 @@ public class Telegram {
             @ParamDoc(name = "args") Object... args) {
 
         return sendTelegram(group, String.format(format, args));
+    }
+
+    @ActionDoc(text = "Sends a Telegram via Telegram REST API - build message with format and args")
+    static public String checkTelegram(@ParamDoc(name = "group") String group,
+            @ParamDoc(name = "args") Object... args) {
+        if (groupTokens.get(group) == null) {
+            logger.error("Bot '{}' not defined, action skipped", group);
+            return "";
+        }
+
+        String url = String.format(endpoint, groupTokens.get(group).getToken());
+        API.ApiResponse response;
+        response = API.execute(url, API.HttpMethod.POST, null, "offset", Integer.toString(offset));
+        JSONArray arr = response.getJson().getJSONArray("result");
+        if (arr.length() == 0) {
+            return "";
+        } else {
+            String chatID = groupTokens.get(group).getChatId();
+            String messageID = Integer
+                    .toString(arr.getJSONObject(0).getJSONObject("message").getJSONObject("chat").getInt("id"));
+            offset = arr.getJSONObject(0).getInt("update_id") + 1;
+            if (!chatID.equals(messageID)) {
+                return "";
+            }
+            String text = arr.getJSONObject(0).getJSONObject("message").getString("text");
+            return text;
+        }
     }
 
     @ActionDoc(text = "Sends a Picture via Telegram REST API")
